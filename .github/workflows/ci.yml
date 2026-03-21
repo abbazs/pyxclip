@@ -44,8 +44,6 @@ jobs:
           pip install maturin pytest
           maturin develop
           pytest tests/ -v
-        env:
-          DISPLAY: ":99"
 
   build-wheels:
     name: Build Wheels
