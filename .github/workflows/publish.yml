@@ -36,7 +36,7 @@ jobs:
         with:
           target: ${{ matrix.target }}
           args: --release --out dist
-          manylinux: manylinux_2_28
+          manylinux: manylinux_2_17
           sccache: true
       - name: Upload wheels
         uses: actions/upload-artifact@v4
