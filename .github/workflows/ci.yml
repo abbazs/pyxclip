@@ -37,23 +37,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Create venv and install deps
+      - name: Build, install, and test
         run: |
           python -m venv .venv
           source .venv/bin/activate
           pip install maturin pytest
-      - name: Build and install
-        run: |
-          source .venv/bin/activate
           maturin develop
-      - name: Run tests
-        run: |
-          source .venv/bin/activate
           pytest tests/ -v
-      - name: Run tests
-        run: pytest tests/ -v
         env:
-          DISPLAY: ":99"  # Virtual display for clipboard tests on CI
+          DISPLAY: ":99"
 
   build-wheels:
     name: Build Wheels

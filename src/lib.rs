@@ -6,6 +6,7 @@ use pyo3::create_exception;
 use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyTuple};
+use pyo3::IntoPyObject;
 
 create_exception!(pyxclip, ClipboardError, PyRuntimeError);
 
@@ -131,7 +132,10 @@ fn paste(py: Python) -> PyResult<PyObject> {
 
     // Try text first (most common case)
     match clipboard.get_text() {
-        Ok(text) => Ok(text.into_py(py).into()),
+        Ok(text) => {
+            let py_str = text.into_pyobject(py)?;
+            Ok(py_str.into_any().unbind())
+        }
         Err(arboard::Error::ContentNotAvailable) => match clipboard.get_image() {
             Ok(img) => {
                 let dict = PyDict::new(py);

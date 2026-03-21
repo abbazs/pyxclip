@@ -2,7 +2,7 @@
 name = "pyxclip"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.75"
+rust-version = "1.80"
 license = "MIT"
 homepage = "https://github.com/abbazs/pyxclip"
 repository = "https://github.com/abbazs/pyxclip"
