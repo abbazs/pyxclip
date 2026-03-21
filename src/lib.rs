@@ -7,8 +7,7 @@ use pyo3::prelude::*;
 
 create_exception!(pyxclip, ClipboardError, PyRuntimeError);
 
-static CLIPBOARD: LazyLock<Mutex<Option<arboard::Clipboard>>> =
-    LazyLock::new(|| Mutex::new(None));
+static CLIPBOARD: LazyLock<Mutex<Option<arboard::Clipboard>>> = LazyLock::new(|| Mutex::new(None));
 
 fn with_clipboard<F, R>(f: F) -> PyResult<R>
 where
