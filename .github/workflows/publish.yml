@@ -29,23 +29,19 @@ jobs:
             target: x86_64-apple-darwin
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
       - uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist --find-interpreter
+          args: --release --out dist
           manylinux: auto
           sccache: true
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.8"
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-${{ matrix.os }}-${{ matrix.target }}-py${{ matrix.python-version }}
+          name: wheels-${{ matrix.os }}-${{ matrix.target }}
           path: dist/
 
   build-sdist:
