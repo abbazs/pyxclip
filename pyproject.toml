@@ -2,32 +2,6 @@
 requires = ["maturin>=1.7,<2.0"]
 build-backend = "maturin"
 
-[project]
-name = "pyxclip"
-description = "Cross-platform clipboard access with zero external dependencies. No xclip or xsel needed on Linux."
-requires-python = ">=3.8"
-license = {text = "MIT"}
-authors = [{ name = "Abbas", email = "abbazs@users.noreply.github.com" }]
-classifiers = [
-    "Development Status :: 4 - Beta",
-    "Programming Language :: Python",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
-    "Programming Language :: Rust",
-    "Operating System :: POSIX :: Linux",
-    "Operating System :: Microsoft :: Windows",
-    "Operating System :: MacOS",
-    "Typing :: Typed",
-    "Topic :: Desktop Environment",
-]
-dynamic = ["version"]
-
 [project.urls]
 Homepage = "https://github.com/abbazs/pyxclip"
 Source = "https://github.com/abbazs/pyxclip"
