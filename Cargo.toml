@@ -21,7 +21,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 pyo3 = { version = "0.23", features = ["extension-module"] }
-arboard = { version = "3", default-features = false, features = ["wayland-data-control"] }
+arboard = { version = "3", default-features = false, features = ["wayland-data-control", "image-data"] }
 
 [profile.release]
 lto = "thin"

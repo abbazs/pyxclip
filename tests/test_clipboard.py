@@ -1,43 +1,61 @@
+import os
+
 import pytest
 import pyxclip
 
 
 def test_copy_and_paste_text():
-    """Copy text to clipboard and paste it back."""
     original = "Hello, pyxclip!"
-    pyxclip.copy_text(original)
-    assert pyxclip.paste_text() == original
+    pyxclip.copy(original)
+    assert pyxclip.paste() == original
 
 
 def test_copy_empty_string():
-    """Copying an empty string should work."""
-    pyxclip.copy_text("")
-    assert pyxclip.paste_text() == ""
+    pyxclip.copy("")
+    assert pyxclip.paste() == ""
 
 
 def test_unicode_text():
-    """Clipboard should handle Unicode/emoji correctly."""
     original = "Hello 🌍 Привет مرحبا"
-    pyxclip.copy_text(original)
-    assert pyxclip.paste_text() == original
+    pyxclip.copy(original)
+    assert pyxclip.paste() == original
 
 
 def test_clear_clipboard():
-    """Clearing clipboard should make paste fail."""
-    pyxclip.copy_text("temporary")
-    pyxclip.clear_clipboard()
+    pyxclip.copy("temporary")
+    pyxclip.clear()
     with pytest.raises(pyxclip.ClipboardError):
-        pyxclip.paste_text()
+        pyxclip.paste()
 
 
 def test_overwrite_clipboard():
-    """Each copy should overwrite the previous content."""
-    pyxclip.copy_text("first")
-    pyxclip.copy_text("second")
-    assert pyxclip.paste_text() == "second"
+    pyxclip.copy("first")
+    pyxclip.copy("second")
+    assert pyxclip.paste() == "second"
 
 
 def test_copy_non_string_raises_type_error():
-    """Passing a non-string to copy_text should raise TypeError."""
     with pytest.raises(TypeError):
-        pyxclip.copy_text(123)  # type: ignore[arg-type]
+        pyxclip.copy(123)  # type: ignore[arg-type]
+
+
+def test_copy_image():
+    width, height = 2, 2
+    rgba = bytes([255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255])
+    pyxclip.copy_image(width, height, rgba)
+
+
+def test_copy_image_via_tuple():
+    width, height = 2, 2
+    rgba = bytes([255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255])
+    pyxclip.copy((width, height, rgba))
+
+
+def test_copy_files():
+    pyxclip.copy_files([__file__])
+
+
+def test_old_api_removed():
+    assert not hasattr(pyxclip, "copy_text")
+    assert not hasattr(pyxclip, "paste_text")
+    assert not hasattr(pyxclip, "clear_clipboard")
