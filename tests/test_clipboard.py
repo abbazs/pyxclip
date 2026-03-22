@@ -85,13 +85,13 @@ def test_copy_files_with_pathlib_list():
 
 @skip_no_display
 def test_copy_nonexistent_file_gives_clear_error():
-    with pytest.raises(pyxclip.ClipboardError, match="not exist|not accessible"):
+    with pytest.raises(pyxclip.ClipboardError, match="Cannot resolve path"):
         pyxclip.copy(Path("/nonexistent/path/that/does/not/exist.txt"))
 
 
 @skip_no_display
 def test_copy_nonexistent_file_list_gives_clear_error():
-    with pytest.raises(pyxclip.ClipboardError, match="not exist|not accessible"):
+    with pytest.raises(pyxclip.ClipboardError, match="Cannot resolve path"):
         pyxclip.copy([Path("/nonexistent/path/that/does/not/exist.txt")])
 
 
@@ -99,6 +99,40 @@ def test_copy_nonexistent_file_list_gives_clear_error():
 def test_str_is_never_treated_as_path():
     pyxclip.copy("/some/random/path.txt")
     assert pyxclip.paste() == "/some/random/path.txt"
+
+
+@skip_no_display
+def test_copy_files_roundtrip():
+    pyxclip.copy([__file__])
+    result = pyxclip.paste()
+    assert isinstance(result, list), f"Expected list, got {type(result).__name__}"
+    assert len(result) == 1
+    assert result[0] == Path(__file__).resolve().as_posix()
+
+
+@skip_no_display
+def test_copy_single_path_roundtrip():
+    pyxclip.copy(Path(__file__))
+    result = pyxclip.paste()
+    assert isinstance(result, list), f"Expected list, got {type(result).__name__}"
+    assert len(result) == 1
+    assert result[0] == Path(__file__).resolve().as_posix()
+
+
+@skip_no_display
+def test_copy_relative_path_becomes_absolute():
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as f:
+        f.write(b"test")
+        tmp_path = f.name
+    try:
+        pyxclip.copy(Path(tmp_path))
+        result = pyxclip.paste()
+        assert isinstance(result, list)
+        assert result[0] == Path(tmp_path).resolve().as_posix()
+    finally:
+        os.unlink(tmp_path)
 
 
 def test_old_api_removed():

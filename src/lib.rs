@@ -83,6 +83,16 @@ fn map_file_error(err: arboard::Error) -> PyErr {
     }
 }
 
+fn canonicalize_path(path: &std::path::Path) -> PyResult<PathBuf> {
+    path.canonicalize().map_err(|e| {
+        ClipboardError::new_err(format!(
+            "Cannot resolve path '{}': {}. The file or directory must exist.",
+            path.display(),
+            e
+        ))
+    })
+}
+
 /// Copy data to the clipboard.
 ///
 /// Accepts any of:
@@ -128,7 +138,8 @@ fn copy(data: &Bound<'_, PyAny>) -> PyResult<()> {
     // Single PathLike → file list with one item
     // (checked after String so str isn't misinterpreted as a path)
     if let Ok(path) = data.extract::<PathBuf>() {
-        return with_clipboard_file(|clipboard| clipboard.set().file_list(&[path]));
+        let resolved = canonicalize_path(&path)?;
+        return with_clipboard_file(|clipboard| clipboard.set().file_list(&[resolved]));
     }
 
     // List → file paths
@@ -136,7 +147,8 @@ fn copy(data: &Bound<'_, PyAny>) -> PyResult<()> {
         let mut paths: Vec<PathBuf> = Vec::with_capacity(list.len());
         for item in list.iter() {
             let path: PathBuf = item.extract()?;
-            paths.push(path);
+            let resolved = canonicalize_path(&path)?;
+            paths.push(resolved);
         }
         return with_clipboard_file(|clipboard| clipboard.set().file_list(&paths));
     }
@@ -164,7 +176,19 @@ fn paste(py: Python) -> PyResult<PyObject> {
     }
     let clipboard = clipboard.as_mut().unwrap();
 
-    // Try text first (most common case)
+    // Try file list first — arboard stores file lists as text/uri-list,
+    // which get_text() would happily return as a string. Checking file_list
+    // first ensures we return list[str] instead of a URI string.
+    if let Ok(paths) = clipboard.get().file_list() {
+        let py_list = PyList::empty(py);
+        for path in paths {
+            let path_str = path.to_string_lossy().to_string();
+            py_list.append(path_str)?;
+        }
+        return Ok(py_list.into_any().unbind());
+    }
+
+    // Try text
     if let Ok(text) = clipboard.get_text() {
         let py_str = text.into_pyobject(py)?;
         return Ok(py_str.into_any().unbind());
@@ -177,16 +201,6 @@ fn paste(py: Python) -> PyResult<PyObject> {
         dict.set_item("height", img.height)?;
         dict.set_item("bytes", img.into_owned_bytes().into_owned())?;
         return Ok(dict.into_any().unbind());
-    }
-
-    // Try file list
-    if let Ok(paths) = clipboard.get().file_list() {
-        let py_list = PyList::empty(py);
-        for path in paths {
-            let path_str = path.to_string_lossy().to_string();
-            py_list.append(path_str)?;
-        }
-        return Ok(py_list.into_any().unbind());
     }
 
     Err(ClipboardError::new_err(
