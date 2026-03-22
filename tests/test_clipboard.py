@@ -83,16 +83,19 @@ def test_copy_files_with_pathlib_list():
     pyxclip.copy([Path(__file__), Path(__file__)])
 
 
+@skip_no_display
 def test_copy_nonexistent_file_gives_clear_error():
     with pytest.raises(pyxclip.ClipboardError, match="not exist|not accessible"):
         pyxclip.copy(Path("/nonexistent/path/that/does/not/exist.txt"))
 
 
+@skip_no_display
 def test_copy_nonexistent_file_list_gives_clear_error():
     with pytest.raises(pyxclip.ClipboardError, match="not exist|not accessible"):
         pyxclip.copy([Path("/nonexistent/path/that/does/not/exist.txt")])
 
 
+@skip_no_display
 def test_str_is_never_treated_as_path():
     pyxclip.copy("/some/random/path.txt")
     assert pyxclip.paste() == "/some/random/path.txt"
