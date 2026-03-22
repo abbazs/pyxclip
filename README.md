@@ -98,14 +98,17 @@ img.save("screenshot.png")
 
 ## File Operations
 
-Copy a list of file paths to the clipboard. Paste returns a list of strings.
+Copy file paths to the clipboard as a single `Path` or a list. Paste returns a list of strings.
 
 ```python
 import pyxclip
 from pathlib import Path
 
-# Copy file paths
-files = ["/tmp/report.pdf", str(Path.home() / "photos" / "vacation.jpg")]
+# Single file
+pyxclip.copy(Path("/tmp/report.pdf"))
+
+# Multiple files
+files = [Path("/tmp/report.pdf"), Path.home() / "photos" / "vacation.jpg"]
 pyxclip.copy(files)
 
 # Paste returns a list
@@ -114,7 +117,46 @@ print(type(pasted))  # <class 'list'>
 print(pasted)        # ['/tmp/report.pdf', '/home/user/photos/vacation.jpg']
 ```
 
-File path support is platform-dependent. Raises `ClipboardError` on unsupported platforms.
+### str vs Path — why it matters
+
+`str` is always treated as **text**, never as a file path. This is intentional:
+
+```python
+import pyxclip
+from pathlib import Path
+
+pyxclip.copy("/some/path.txt")
+print(pyxclip.paste())  # "/some/path.txt" — copied as text
+
+pyxclip.copy(Path("/some/path.txt"))
+# — copied as file reference (if file exists)
+```
+
+If you have a string that represents a file path, wrap it in `Path`:
+
+```python
+pyxclip.copy(Path(my_string_path))
+```
+
+### Error messages
+
+File copy errors are specific about what went wrong:
+
+```python
+import pyxclip
+from pathlib import Path
+
+try:
+    pyxclip.copy(Path("/does/not/exist.txt"))
+except pyxclip.ClipboardError as e:
+    print(e)
+    # "Failed to copy file paths to clipboard: one or more files may not exist
+    #  or are inaccessible. All paths must point to existing files or directories."
+```
+
+File path copy succeeds on all desktop platforms (Windows, macOS, Linux). However, **pasting files into a file manager depends on your desktop environment**. pyxclip writes the standard `text/uri-list` format — whether the receiving app reads it is up to that app.
+
+If `copy()` succeeds but pasting into a specific app doesn't work, the issue is with that app's clipboard support — not pyxclip.
 
 ## Error Handling
 
@@ -277,7 +319,7 @@ print("Text transformed in clipboard")
 ## Type Signatures
 
 ```python
-def copy(data: None | str | tuple[int, int, bytes] | list[str], /) -> None: ...
+def copy(data: None | str | tuple[int, int, bytes] | os.PathLike[str] | os.PathLike[bytes] | list[os.PathLike[str] | str], /) -> None: ...
 def paste() -> str | dict[str, object] | list[str]: ...
 def clear() -> None: ...
 

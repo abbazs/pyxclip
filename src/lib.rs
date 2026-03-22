@@ -25,6 +25,19 @@ where
     f(guard.as_mut().unwrap()).map_err(map_arboard_error)
 }
 
+fn with_clipboard_file<F>(f: F) -> PyResult<()>
+where
+    F: FnOnce(&mut arboard::Clipboard) -> Result<(), arboard::Error>,
+{
+    let mut guard = CLIPBOARD
+        .lock()
+        .map_err(|e| ClipboardError::new_err(format!("Clipboard lock poisoned: {e}")))?;
+    if guard.is_none() {
+        *guard = Some(arboard::Clipboard::new().map_err(map_arboard_error)?);
+    }
+    f(guard.as_mut().unwrap()).map_err(map_file_error)
+}
+
 fn map_arboard_error(err: arboard::Error) -> PyErr {
     let description = match &err {
         arboard::Error::ContentNotAvailable => {
@@ -51,13 +64,36 @@ fn map_arboard_error(err: arboard::Error) -> PyErr {
     ClipboardError::new_err(description)
 }
 
+fn map_file_error(err: arboard::Error) -> PyErr {
+    match &err {
+        arboard::Error::ConversionFailure => ClipboardError::new_err(
+            "Failed to copy file paths to clipboard: one or more files may not exist or are inaccessible. \
+             All paths must point to existing files or directories.",
+        ),
+        arboard::Error::ClipboardNotSupported => ClipboardError::new_err(
+            "File list clipboard operations are not supported in this environment. \
+             This may occur on Wayland without the ext-data-control protocol.",
+        ),
+        arboard::Error::Unknown { description } => {
+            ClipboardError::new_err(format!(
+                "Failed to copy file paths to clipboard: {description}"
+            ))
+        }
+        _ => map_arboard_error(err),
+    }
+}
+
 /// Copy data to the clipboard.
 ///
 /// Accepts any of:
 ///   - `None` — clears the clipboard
 ///   - `str` — copies as text
 ///   - `(width, height, bytes)` — copies as image (RGBA pixels, row-major)
-///   - `list[str | PathLike]` — copies as file paths (platform-dependent)
+///   - `PathLike` — copies a single file path
+///   - `list[PathLike]` — copies multiple file paths
+///
+/// Note: `str` is always treated as text, never as a file path.
+/// Use `pathlib.Path` or `os.fspath()` to copy file paths.
 #[pyfunction(signature = (data))]
 fn copy(data: &Bound<'_, PyAny>) -> PyResult<()> {
     // None → clear
@@ -65,7 +101,7 @@ fn copy(data: &Bound<'_, PyAny>) -> PyResult<()> {
         return with_clipboard(|clipboard| clipboard.clear());
     }
 
-    // String → text
+    // String → text (str always means text, never a file path)
     if let Ok(text) = data.extract::<String>() {
         return with_clipboard(|clipboard| clipboard.set_text(text));
     }
@@ -89,6 +125,12 @@ fn copy(data: &Bound<'_, PyAny>) -> PyResult<()> {
         ));
     }
 
+    // Single PathLike → file list with one item
+    // (checked after String so str isn't misinterpreted as a path)
+    if let Ok(path) = data.extract::<PathBuf>() {
+        return with_clipboard_file(|clipboard| clipboard.set().file_list(&[path]));
+    }
+
     // List → file paths
     if let Ok(list) = data.downcast::<PyList>() {
         let mut paths: Vec<PathBuf> = Vec::with_capacity(list.len());
@@ -96,16 +138,11 @@ fn copy(data: &Bound<'_, PyAny>) -> PyResult<()> {
             let path: PathBuf = item.extract()?;
             paths.push(path);
         }
-        return with_clipboard(|clipboard| {
-            clipboard
-                .set()
-                .file_list(&paths)
-                .map_err(|_| arboard::Error::ClipboardNotSupported)
-        });
+        return with_clipboard_file(|clipboard| clipboard.set().file_list(&paths));
     }
 
     Err(PyTypeError::new_err(
-        "copy() expects None, str, (width, height, bytes) tuple, or list of paths",
+        "copy() expects None, str, (width, height, bytes) tuple, PathLike, or list of paths",
     ))
 }
 
