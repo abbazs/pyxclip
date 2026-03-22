@@ -2,7 +2,7 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/pyxclip)](https://pypi.org/project/pyxclip/)
 [![Python versions](https://img.shields.io/pypi/pyversions/pyxclip)](https://pypi.org/project/pyxclip/)
-[![Downloads](https://img.shields.io/pypi/dm/pyxclip)](https://pypi.org/project/pyxclip/)
+[![Downloads](https://static.pepy.tech/badge/pyxclip)](https://pepy.tech/project/pyxclip)
 
 Cross-platform clipboard access with zero external dependencies. No xclip or xsel needed on Linux. Built with Rust (PyO3 + arboard) for speed and reliability.
 
