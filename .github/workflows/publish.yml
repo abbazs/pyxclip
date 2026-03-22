@@ -37,7 +37,7 @@ jobs:
       - uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: ${{ matrix.build-args || '--release --out dist' }}
+          args: --release --out dist ${{ matrix.target == 'aarch64-unknown-linux-gnu' && '-i python3' || '' }}
           manylinux: ${{ matrix.manylinux || 'auto' }}
           container: ${{ matrix.container || '' }}
           sccache: true
