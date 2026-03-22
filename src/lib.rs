@@ -5,7 +5,7 @@ use std::sync::Mutex;
 use pyo3::create_exception;
 use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyTuple};
+use pyo3::types::{PyDict, PyList, PyTuple};
 use pyo3::IntoPyObject;
 
 create_exception!(pyxclip, ClipboardError, PyRuntimeError);
@@ -53,13 +53,18 @@ fn map_arboard_error(err: arboard::Error) -> PyErr {
 
 /// Copy data to the clipboard.
 ///
-/// Accepts:
-///   - str: copies as text
-///   - bytes: copies as image (must be RGBA pixels with explicit width/height via `copy_image`)
-///   - tuple (width, height, bytes): copies as image
-///   - str or PathLike: copies as file path (not supported on all platforms)
-#[pyfunction]
+/// Accepts any of:
+///   - `None` — clears the clipboard
+///   - `str` — copies as text
+///   - `(width, height, bytes)` — copies as image (RGBA pixels, row-major)
+///   - `list[str | PathLike]` — copies as file paths (platform-dependent)
+#[pyfunction(signature = (data))]
 fn copy(data: &Bound<'_, PyAny>) -> PyResult<()> {
+    // None → clear
+    if data.is_none() {
+        return with_clipboard(|clipboard| clipboard.clear());
+    }
+
     // String → text
     if let Ok(text) = data.extract::<String>() {
         return with_clipboard(|clipboard| clipboard.set_text(text));
@@ -84,42 +89,34 @@ fn copy(data: &Bound<'_, PyAny>) -> PyResult<()> {
         ));
     }
 
+    // List → file paths
+    if let Ok(list) = data.downcast::<PyList>() {
+        let mut paths: Vec<PathBuf> = Vec::with_capacity(list.len());
+        for item in list.iter() {
+            let path: PathBuf = item.extract()?;
+            paths.push(path);
+        }
+        return with_clipboard(|clipboard| {
+            clipboard
+                .set()
+                .file_list(&paths)
+                .map_err(|_| arboard::Error::ClipboardNotSupported)
+        });
+    }
+
     Err(PyTypeError::new_err(
-        "copy() expects str, bytes (via copy_image), or (width, height, bytes) tuple",
+        "copy() expects None, str, (width, height, bytes) tuple, or list of paths",
     ))
-}
-
-/// Copy an image to the clipboard.
-///
-/// Args:
-///   width: Image width in pixels
-///   height: Image height in pixels
-///   rgba_bytes: Raw RGBA pixel data as bytes (4 bytes per pixel, row-major)
-#[pyfunction]
-fn copy_image(width: usize, height: usize, rgba_bytes: &[u8]) -> PyResult<()> {
-    let image = arboard::ImageData {
-        width,
-        height,
-        bytes: std::borrow::Cow::Borrowed(rgba_bytes),
-    };
-    with_clipboard(|clipboard| clipboard.set_image(image))
-}
-
-/// Copy a list of file paths to the clipboard.
-#[pyfunction]
-fn copy_files(_py: Python, paths: Vec<PathBuf>) -> PyResult<()> {
-    with_clipboard(|clipboard| {
-        clipboard
-            .set()
-            .file_list(&paths)
-            .map_err(|_| arboard::Error::ClipboardNotSupported)
-    })
 }
 
 /// Paste content from the clipboard.
 ///
-/// Returns the clipboard content as text. If the clipboard contains an image,
-/// returns a dict with keys "width", "height", "bytes".
+/// Returns:
+///   - `str` if the clipboard contains text
+///   - `dict` with keys "width", "height", "bytes" if the clipboard contains an image
+///   - `list[str]` if the clipboard contains file paths
+///
+/// Raises `ClipboardError` if the clipboard is empty or inaccessible.
 #[pyfunction]
 fn paste(py: Python) -> PyResult<PyObject> {
     let mut clipboard = CLIPBOARD
@@ -131,40 +128,39 @@ fn paste(py: Python) -> PyResult<PyObject> {
     let clipboard = clipboard.as_mut().unwrap();
 
     // Try text first (most common case)
-    match clipboard.get_text() {
-        Ok(text) => {
-            let py_str = text.into_pyobject(py)?;
-            Ok(py_str.into_any().unbind())
-        }
-        Err(arboard::Error::ContentNotAvailable) => match clipboard.get_image() {
-            Ok(img) => {
-                let dict = PyDict::new(py);
-                dict.set_item("width", img.width)?;
-                dict.set_item("height", img.height)?;
-                dict.set_item("bytes", img.into_owned_bytes().into_owned())?;
-                let obj = dict.into_any();
-                Ok(obj.unbind())
-            }
-            Err(_) => Err(arboard::Error::ContentNotAvailable),
-        },
-        Err(e) => Err(e),
+    if let Ok(text) = clipboard.get_text() {
+        let py_str = text.into_pyobject(py)?;
+        return Ok(py_str.into_any().unbind());
     }
-    .map_err(map_arboard_error)
-}
 
-/// Clear the clipboard.
-#[pyfunction]
-fn clear() -> PyResult<()> {
-    with_clipboard(|clipboard| clipboard.clear())
+    // Try image
+    if let Ok(img) = clipboard.get_image() {
+        let dict = PyDict::new(py);
+        dict.set_item("width", img.width)?;
+        dict.set_item("height", img.height)?;
+        dict.set_item("bytes", img.into_owned_bytes().into_owned())?;
+        return Ok(dict.into_any().unbind());
+    }
+
+    // Try file list
+    if let Ok(paths) = clipboard.get().file_list() {
+        let py_list = PyList::empty(py);
+        for path in paths {
+            let path_str = path.to_string_lossy().to_string();
+            py_list.append(path_str)?;
+        }
+        return Ok(py_list.into_any().unbind());
+    }
+
+    Err(ClipboardError::new_err(
+        "Clipboard is empty or contains incompatible data",
+    ))
 }
 
 #[pymodule]
 fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(copy, m)?)?;
-    m.add_function(wrap_pyfunction!(copy_image, m)?)?;
-    m.add_function(wrap_pyfunction!(copy_files, m)?)?;
     m.add_function(wrap_pyfunction!(paste, m)?)?;
-    m.add_function(wrap_pyfunction!(clear, m)?)?;
     m.add("ClipboardError", m.py().get_type::<ClipboardError>())?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
