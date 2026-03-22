@@ -5,6 +5,7 @@ from __future__ import annotations
 from ._core import (
     ClipboardError,
     __version__,
+    clear,
     copy,
     paste,
 )
@@ -12,6 +13,7 @@ from ._core import (
 __all__ = [
     "__version__",
     "ClipboardError",
+    "clear",
     "copy",
     "paste",
 ]

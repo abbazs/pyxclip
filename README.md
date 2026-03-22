@@ -20,7 +20,7 @@ text = pyxclip.paste()
 print(text)  # Hello, world!
 ```
 
-That's the whole API. Two functions: `copy()` and `paste()`. Copy figures out what to do based on the type you pass. Paste returns whatever is on the clipboard.
+That's the whole API. Three functions: `copy()`, `paste()`, and `clear()`. Copy figures out what to do based on the type you pass. Paste returns whatever is on the clipboard.
 
 ## Text Operations
 
@@ -54,12 +54,14 @@ print(pyxclip.paste())  # (empty string)
 
 ## Clear the Clipboard
 
-Pass `None` to `copy()` and the clipboard is cleared.
+Pass `None` to `copy()` or call `clear()`.
 
 ```python
 import pyxclip
 
+# Either way works
 pyxclip.copy(None)
+pyxclip.clear()
 
 # Pasting after clearing raises ClipboardError
 try:
@@ -277,6 +279,7 @@ print("Text transformed in clipboard")
 ```python
 def copy(data: None | str | tuple[int, int, bytes] | list[str], /) -> None: ...
 def paste() -> str | dict[str, object] | list[str]: ...
+def clear() -> None: ...
 
 class ClipboardError(RuntimeError): ...
 ```

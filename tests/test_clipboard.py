@@ -36,6 +36,14 @@ def test_clear_via_none():
 
 
 @skip_no_display
+def test_clear():
+    pyxclip.copy("temporary")
+    pyxclip.clear()
+    with pytest.raises(pyxclip.ClipboardError):
+        pyxclip.paste()
+
+
+@skip_no_display
 def test_overwrite_clipboard():
     pyxclip.copy("first")
     pyxclip.copy("second")
@@ -65,4 +73,3 @@ def test_old_api_removed():
     assert not hasattr(pyxclip, "clear_clipboard")
     assert not hasattr(pyxclip, "copy_image")
     assert not hasattr(pyxclip, "copy_files")
-    assert not hasattr(pyxclip, "clear")

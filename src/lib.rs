@@ -157,10 +157,17 @@ fn paste(py: Python) -> PyResult<PyObject> {
     ))
 }
 
+/// Clear the clipboard.
+#[pyfunction]
+fn clear() -> PyResult<()> {
+    with_clipboard(|clipboard| clipboard.clear())
+}
+
 #[pymodule]
 fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(copy, m)?)?;
     m.add_function(wrap_pyfunction!(paste, m)?)?;
+    m.add_function(wrap_pyfunction!(clear, m)?)?;
     m.add("ClipboardError", m.py().get_type::<ClipboardError>())?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
